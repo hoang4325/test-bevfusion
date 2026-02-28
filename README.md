@@ -1,4 +1,4 @@
-# BEVFusion
+# BEVFusion (Radar)
 
 ![demo](assets/demo.gif)
 
