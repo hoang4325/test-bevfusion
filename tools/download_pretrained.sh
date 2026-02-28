@@ -1,4 +1,4 @@
-mkdir pretrained && \
+mkdir -p pretrained && \
 cd pretrained && \
 wget -O bevfusion-det.pth https://www.dropbox.com/scl/fi/ulaz9z4wdwtypjhx7xdi3/bevfusion-det.pth?rlkey=ovusfi2rchjub5oafogou255v && \
 wget -O bevfusion-seg.pth https://www.dropbox.com/scl/fi/8lgd1hkod2a15mwry0fvd/bevfusion-seg.pth?rlkey=2tmgw7mcrlwy9qoqeui63tay9 && \
