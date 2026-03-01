@@ -42,6 +42,7 @@ class BEVFusion(Base3DFusionModel):
                     "vtransform": build_vtransform(encoders["camera"]["vtransform"]),
                 }
             )
+        self.voxelize_reduce = {}
         if encoders.get("lidar") is not None:
             if encoders["lidar"]["voxelize"].get("max_num_points", -1) > 0:
                 voxelize_module = Voxelization(**encoders["lidar"]["voxelize"])
@@ -53,7 +54,7 @@ class BEVFusion(Base3DFusionModel):
                     "backbone": build_backbone(encoders["lidar"]["backbone"]),
                 }
             )
-            self.voxelize_reduce = encoders["lidar"].get("voxelize_reduce", True)
+            self.voxelize_reduce["lidar"] = encoders["lidar"].get("voxelize_reduce", True)
 
         if encoders.get("radar") is not None:
             if encoders["radar"]["voxelize"].get("max_num_points", -1) > 0:
@@ -66,7 +67,7 @@ class BEVFusion(Base3DFusionModel):
                     "backbone": build_backbone(encoders["radar"]["backbone"]),
                 }
             )
-            self.voxelize_reduce = encoders["radar"].get("voxelize_reduce", True)
+            self.voxelize_reduce["radar"] = encoders["radar"].get("voxelize_reduce", True)
 
         if fuser is not None:
             self.fuser = build_fuser(fuser)
@@ -188,7 +189,7 @@ class BEVFusion(Base3DFusionModel):
         coords = torch.cat(coords, dim=0)
         if len(sizes) > 0:
             sizes = torch.cat(sizes, dim=0)
-            if self.voxelize_reduce:
+            if self.voxelize_reduce.get(sensor, True):
                 feats = feats.sum(dim=1, keepdim=False) / sizes.type_as(feats).view(
                     -1, 1
                 )
