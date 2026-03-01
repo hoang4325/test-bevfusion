@@ -116,7 +116,7 @@ For the original fully manual, step-by-step dev notes, see: [`dev_note.md`](dev_
 
   ```bash
   cd /workspace
-  git clone https://github.com/rathaumons/bevfusion.git
+  git clone https://github.com/rathaumons/bevfusionx.git
   cd bevfusion
   python setup.py develop
   ```
