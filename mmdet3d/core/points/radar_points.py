@@ -2,7 +2,7 @@ from .base_points import BasePoints
 import torch
 
 class RadarPoints(BasePoints):
-    """Points of instances in LIDAR coordinates.
+    """Points of instances in radar coordinates.
     Args:
         tensor (torch.Tensor | np.ndarray | list): a N x points_dim matrix.
         points_dim (int): Number of the dimension of a point.
