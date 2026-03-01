@@ -642,6 +642,3 @@ def generate_record(
 
     return coco_rec
 
-
-if __name__ == '__main__':
-    create_nuscenes_infos('data/nuscenes/', 'radar_nuscenes_5sweeps')
