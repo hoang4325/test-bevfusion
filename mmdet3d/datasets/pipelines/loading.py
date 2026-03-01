@@ -626,30 +626,30 @@ class LoadRadarPointsMultiSweeps(object):
         ]
 
 
-    def perform_encodings(self, points, encoding):
-        for idx, encoding_type, encoding_dims in self.encoding:
+    def perform_encodings(self, points, encodings):
+        for idx, encoding_type, encoding_dims in encodings:
 
             assert encoding_type in ['one-hot', 'ordinal', 'nusc-filter']
 
             feat = points[:, idx]
 
             if encoding_type == 'one-hot':
-                encoding = np.zeros((points.shape[0], encoding_dims))
-                encoding[np.arange(feat.shape[0]), np.rint(feat).astype(int)] = 1
+                encoding_vals = np.zeros((points.shape[0], encoding_dims))
+                encoding_vals[np.arange(feat.shape[0]), np.rint(feat).astype(int)] = 1
             if encoding_type == 'ordinal':
-                encoding = np.zeros((points.shape[0], encoding_dims))
+                encoding_vals = np.zeros((points.shape[0], encoding_dims))
                 for i in range(encoding_dims):
-                    encoding[:, i] = (np.rint(feat) > i).astype(int)
+                    encoding_vals[:, i] = (np.rint(feat) > i).astype(int)
             if encoding_type == 'nusc-filter':
-                encoding = np.zeros((points.shape[0], encoding_dims))
+                encoding_vals = np.zeros((points.shape[0], encoding_dims))
                 mask1 = (points[:, 14] == 0)
                 mask2 = (points[:, 3] < 7)
                 mask3 = (points[:, 11] == 3)
 
-                encoding[mask1 & mask2 & mask3, 0] = 1
+                encoding_vals[mask1 & mask2 & mask3, 0] = 1
 
 
-            points = np.concatenate([points, encoding], axis=1)
+            points = np.concatenate([points, encoding_vals], axis=1)
         return points
 
     def _load_points(self, pts_filename):
