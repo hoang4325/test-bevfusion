@@ -230,6 +230,7 @@ def _fill_trainval_infos(nusc,
             'CAM_BACK_LEFT',
             'CAM_BACK_RIGHT',
         ]
+
         for cam in camera_types:
             cam_token = sample['data'][cam]
             cam_path, _, camera_intrinsics = nusc.get_sample_data(cam_token)
@@ -243,28 +244,19 @@ def _fill_trainval_infos(nusc,
             radar_token = sample['data'][radar_name]
             radar_rec = nusc.get('sample_data', radar_token)
             sweeps = []
-            last_radar_info = None
-
-            # Move to the previous frame before collecting sweeps,
-            # so we don't include the keyframe as a "sweep" of itself.
-            radar_token = radar_rec['prev']
-            if radar_token != '':
-                radar_rec = nusc.get('sample_data', radar_token)
-
-            while len(sweeps) < max_radar_sweeps and radar_token != '':
-                radar_info = obtain_sensor2top(nusc, radar_token, l2e_t, l2e_r_mat, e2g_t, e2g_r_mat, radar_name)
-                sweeps.append(radar_info)
-                last_radar_info = radar_info
-
-                radar_token = radar_rec['prev']
-                if radar_token != '':
+            while len(sweeps) < max_radar_sweeps:
+                if not radar_rec['prev'] == '':
+                    radar_path, _, radar_intrin = nusc.get_sample_data(radar_token)
+                    radar_info = obtain_sensor2top(nusc, radar_token, l2e_t, l2e_r_mat, e2g_t, e2g_r_mat, radar_name)
+                    sweeps.append(radar_info)
+                    radar_token = radar_rec['prev']
                     radar_rec = nusc.get('sample_data', radar_token)
-
-            # Pad by repeating the last available sweep if history is shorter than max_radar_sweeps.
-            if last_radar_info is not None and len(sweeps) < max_radar_sweeps:
-                sweeps.extend([last_radar_info] * (max_radar_sweeps - len(sweeps)))
-
+                else:
+                    radar_path, _, radar_intrin = nusc.get_sample_data(radar_token)
+                    radar_info = obtain_sensor2top(nusc, radar_token, l2e_t, l2e_r_mat,e2g_t, e2g_r_mat, radar_name)
+                    sweeps.append(radar_info)
             info['radars'].update({radar_name: sweeps})
+
         # obtain sweeps for a single key-frame
         sd_rec = nusc.get('sample_data', sample['data']['LIDAR_TOP'])
         sweeps = []
@@ -274,8 +266,11 @@ def _fill_trainval_infos(nusc,
                 sweeps.append(sweep)
                 sd_rec = nusc.get('sample_data', sd_rec['prev'])
             else:
+                if len(sweeps) == 0:
+                    sweeps.append(obtain_sensor2top(nusc, sd_rec["token"], l2e_t, l2e_r_mat, e2g_t, e2g_r_mat, "lidar",))
                 break
         info['sweeps'] = sweeps
+
         # obtain annotation
         if not test:
             annotations = [nusc.get('sample_annotation', token) for token in sample['anns']]
@@ -295,6 +290,7 @@ def _fill_trainval_infos(nusc,
                 if names[i] in NuScenesDataset.NameMapping:
                     names[i] = NuScenesDataset.NameMapping[names[i]]
             names = np.array(names)
+
             # we need to convert rot to SECOND format.
             gt_boxes = np.concatenate([locs, dims, -rots - np.pi / 2], axis=1)
             assert len(gt_boxes) == len(annotations), f'{len(gt_boxes)}, {len(annotations)}'
@@ -311,7 +307,7 @@ def _fill_trainval_infos(nusc,
         else:
             val_nusc_infos.append(info)
             token2idx[info['token']] = ('val', len(val_nusc_infos) - 1)
-    
+
     for info in train_nusc_infos:
         prev_token = info['prev_token']
         if prev_token == '':
