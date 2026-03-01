@@ -214,7 +214,10 @@ class GlobalRotScaleTrans:
                 data["points"].translate(translation)
                 data["points"].scale(scale)
 
-            if "radar" in data:
+            radar = data.get("radar", None)
+            if radar is None or isinstance(radar, dict):
+                pass
+            else:
                 data["radar"].rotate(-theta)
                 data["radar"].translate(translation)
                 data["radar"].scale(scale)
@@ -331,7 +334,10 @@ class RandomFlip3D:
             rotation = np.array([[1, 0, 0], [0, -1, 0], [0, 0, 1]]) @ rotation
             if "points" in data:
                 data["points"].flip("horizontal")
-            if "radar" in data:
+            radar = data.get("radar", None)
+            if radar is None or isinstance(radar, dict):
+                pass
+            else:
                 data["radar"].flip("horizontal")
             if "gt_bboxes_3d" in data:
                 data["gt_bboxes_3d"].flip("horizontal")
@@ -342,7 +348,10 @@ class RandomFlip3D:
             rotation = np.array([[-1, 0, 0], [0, 1, 0], [0, 0, 1]]) @ rotation
             if "points" in data:
                 data["points"].flip("vertical")
-            if "radar" in data:
+            radar = data.get("radar", None)
+            if radar is None or isinstance(radar, dict):
+                pass
+            else:
                 data["radar"].flip("vertical")
             if "gt_bboxes_3d" in data:
                 data["gt_bboxes_3d"].flip("vertical")
