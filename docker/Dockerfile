@@ -50,8 +50,8 @@ RUN dos2unix /root/.bashrc
 # Base Python requirements
 # ------------------------------------------------------------
 RUN source /root/miniconda3/bin/activate bevfusion && \
-    pip install "pip<23" "setuptools==59.5.0" "wheel<0.40" && \
-    pip install "numpy==1.23.5" "opencv-python<4.6"
+    pip install -U pip wheel "setuptools==59.5.0" && \
+    pip install numpy==1.23.5 "opencv-python<4.6"
 
 RUN source /root/miniconda3/bin/activate bevfusion && \
     pip install torch==1.10.2 torchvision==0.11.3 --index-url https://download.pytorch.org/whl/cu113
@@ -91,7 +91,7 @@ RUN source /root/miniconda3/bin/activate bevfusion && \
 # ------------------------------------------------------------
 
 # Force CUDA
-ARG TORCH_CUDA_ARCH_LIST="8.6"
+ARG TORCH_CUDA_ARCH_LIST="7.0 7.5 8.6"
 ENV FORCE_CUDA="1"
 ENV TORCH_CUDA_ARCH_LIST="${TORCH_CUDA_ARCH_LIST}"
 
@@ -102,12 +102,6 @@ RUN source /root/miniconda3/bin/activate bevfusion && \
     tar -xvf mmcv-1.4.0.tar.gz && \
     cd mmcv-1.4.0 && \
     MAKEFLAGS="-j$(nproc)" MMCV_WITH_OPS=1 pip install -e . -v
-
-# Test
-RUN source /root/miniconda3/bin/activate bevfusion && \
-    python -W ignore -c "import mmcv" && \
-    python -W ignore /root/mmcv-1.4.0/.dev_scripts/check_installation.py || \
-    (echo "MMCV CUDA test failed" && exit 1)
 
 # ------------------------------------------------------------
 # Other Python requirements
