@@ -1,8 +1,10 @@
 # Installation 🚀
 
-This guide walks you through installing the project directly on your machine. Note that because the project has very limited and strict requirements (Locked to [CUDA 12.1](https://docs.nvidia.com/cuda/archive/12.1.1/)), this installation path may only work reliably on older or specific hardware.
+This guide walks you through installing the project directly on your machine. If you have newer‑generation hardware or prefer an isolated, reproducible environment, you can instead use Docker.
 
-If you have newer‑generation hardware or prefer an isolated, reproducible environment, you can instead use [Docker 🐳](docker).
+👉 For [CUDA 11.3](https://github.com/rathaumons/bevfusionx/blob/main/INSTALLATION.md) | [Docker 🐳](https://github.com/rathaumons/bevfusionx/tree/main/docker)
+
+👉 **For [CUDA 12.1](https://github.com/rathaumons/bevfusionx/blob/cu121/INSTALLATION.md) | [Docker 🐳](https://github.com/rathaumons/bevfusionx/tree/cu121/docker)** ✅
 
 ## Prepare prerequisites
 
@@ -22,7 +24,7 @@ If you have newer‑generation hardware or prefer an isolated, reproducible envi
 - Install `opencv-python` and `numpy`:
 
   ```
-  pip install pip wheel "setuptools<82" # MUST DO !!!
+  pip install pip wheel "setuptools<82"  # MUST DO !!!
   pip install numpy==1.26.4 "opencv-python<4.12"
   ```
 
@@ -113,9 +115,10 @@ If you have newer‑generation hardware or prefer an isolated, reproducible envi
 - Clone the repo and install Python Packages:
 
   ```bash
-  cd ~ # or choose your preferred location
+  cd ~  # or choose your preferred location
   git clone https://github.com/rathaumons/bevfusionx.git
   cd bevfusion
+  git checkout cu121  # IMPORTANT !!!
   pip install -r requirements.txt
   ```
 
