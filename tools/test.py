@@ -3,6 +3,8 @@ import copy
 import os
 import warnings
 
+import dirty_patches
+
 import mmcv
 import torch
 from torchpack.utils.config import configs
