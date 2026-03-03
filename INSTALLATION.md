@@ -1,6 +1,6 @@
 # Installation 🚀
 
-This guide walks you through installing the project directly on your machine. Note that because the project has very limited and strict requirements (Locked to [CUDA 11.3](https://docs.nvidia.com/cuda/archive/11.3.1/)), this installation path may only work reliably on older or specific hardware.
+This guide walks you through installing the project directly on your machine. Note that because the project has very limited and strict requirements (Locked to [CUDA 12.1](https://docs.nvidia.com/cuda/archive/12.1.1/)), this installation path may only work reliably on older or specific hardware.
 
 If you have newer‑generation hardware or prefer an isolated, reproducible environment, you can instead use [Docker 🐳](docker).
 
@@ -8,8 +8,8 @@ If you have newer‑generation hardware or prefer an isolated, reproducible envi
 
 - Only Linux
 - Only gcc/g++ 9; otherwise, errors will occur later in some builds.
-- Only [CUDA 11.3](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/) & [cuDNN 8.9.7](https://docs.nvidia.com/deeplearning/cudnn/latest/installation/linux.html)
-- Only Python 3.8/3.9 -> `conda create --name bevfusion python=3.9`
+- Only [CUDA 12.1](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/) & [cuDNN 8.9.7](https://docs.nvidia.com/deeplearning/cudnn/latest/installation/linux.html)
+- Only Python 3.11 -> `conda create --name bevfusion python=3.11`
 
 ## Install requirements and build
 
@@ -22,29 +22,23 @@ If you have newer‑generation hardware or prefer an isolated, reproducible envi
 - Install `opencv-python` and `numpy`:
 
   ```
-  pip install "pip<23" "setuptools==59.5.0" "wheel<0.40" # MUST DO !!!
-  pip install "numpy==1.23.5" "opencv-python<4.6"
+  pip install pip wheel "setuptools<82" # MUST DO !!!
+  pip install numpy==1.26.4 "opencv-python<4.12"
   ```
 
-- Install [PyTorch](https://pytorch.org/) 1.10.2 + CUDA 11.3 (Max support: `compute_86`, `sm_86`):
+- Install [PyTorch](https://pytorch.org/) 2.2.2 + CUDA 12.1 (Max support: `compute_90`, `sm_90`):
 
   <details><summary>Show more details</summary>
 
   - pip (recommended):
 
     ```bash
-    pip install torch==1.10.2 torchvision==0.11.3 --index-url https://download.pytorch.org/whl/cu113
-    ```
-
-  - or conda:
-
-    ```bash
-    conda install pytorch==1.10.2 torchvision==0.11.3 cudatoolkit=11.3 -c pytorch -c conda-forge
+    pip install torch==2.2.2 torchvision==0.17.2 --index-url https://download.pytorch.org/whl/cu121
     ```
 
   </details>
 
-- Install OpenMPI v4.0.4 (CUDA):
+- Install [OpenMPI v4.0.7](https://www.open-mpi.org/software/ompi/v4.0/) (CUDA):
 
   <details><summary>Show more details</summary>
 
@@ -52,14 +46,14 @@ If you have newer‑generation hardware or prefer an isolated, reproducible envi
 
     ```bash
     cd ~
-    wget https://download.open-mpi.org/release/open-mpi/v4.0/openmpi-4.0.4.tar.gz
-    tar -xvf openmpi-4.0.4.tar.gz
+    wget https://download.open-mpi.org/release/open-mpi/v4.0/openmpi-4.0.7.tar.gz
+    tar -xvf openmpi-4.0.7.tar.gz
     ```
 
   - Config cmake with CUDA:
 
     ```bash
-    cd openmpi-4.0.4
+    cd openmpi-4.0.7
     ./configure --prefix="/home/$USER/.openmpi" --with-cuda=/usr/local/cuda
     ```
 
@@ -88,7 +82,7 @@ If you have newer‑generation hardware or prefer an isolated, reproducible envi
 
   </details>
 
-- Install MMCV v1.4.0 (CUDA):
+- Install [MMCV v1.7.3](https://github.com/rathaROG/mmcv/releases/tag/v1.7.3) (CUDA):
 
   <details><summary>Show more details</summary>
 
@@ -96,15 +90,15 @@ If you have newer‑generation hardware or prefer an isolated, reproducible envi
 
     ```bash
     cd ~
-    wget -O mmcv-1.4.0.tar.gz https://github.com/open-mmlab/mmcv/archive/refs/tags/v1.4.0.tar.gz
-    tar -xvf mmcv-1.4.0.tar.gz
+    wget -O https://github.com/rathaROG/mmcv/archive/refs/tags/v1.7.3.tar.gz
+    tar -xvf mmcv-1.7.3.tar.gz
     ```
 
   - Config cmake, build, and install:
 
     ```bash
-    cd mmcv-1.4.0
-    MAKEFLAGS="-j$(nproc)" MMCV_WITH_OPS=1 pip install -e . -v
+    cd mmcv-1.7.3
+    MAKEFLAGS="-j$(nproc)" MMCV_WITH_OPS=1 pip install -e . --no-build-isolation -v
     ```
 
   - Quick test:
@@ -139,13 +133,20 @@ If you have newer‑generation hardware or prefer an isolated, reproducible envi
   mv "$ld_file" "$tmp_ld_file"
   
   # Install mpi4py
-  pip install mpi4py==3.0.3
+  pip install mpi4py
 
   # Reverted ld_tmp to ld
   mv "$tmp_ld_file" "$ld_file"
   ```
 
   </details>
+
+- Install `flash-attn==1.0.9` and `setuptools==59.5.0`:
+
+  ```bash
+  pip install --no-build-isolation flash-attn==1.0.9
+  pip install setuptools==59.5.0
+  ```
 
 - Build `bevfusion`:
 
