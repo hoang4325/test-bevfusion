@@ -22,10 +22,10 @@ def make_cuda_ext(
             "-gencode=arch=compute_70,code=sm_70",
             "-gencode=arch=compute_75,code=sm_75",
             "-gencode=arch=compute_80,code=sm_80",
-            "-gencode=arch=compute_86,code=sm_86",  # CUDA 11.3 (Recommend) or older
-            # "-gencode=arch=compute_89,code=sm_89",  # CUDA 11.8 or newer (Doesn't support)
-            # "-gencode=arch=compute_90,code=sm_90",  # CUDA 11.8 or newer (Doesn't support)
-            # "-gencode=arch=compute_120,code=sm_120",  # CUDA 12.8 or newer (Doesn't support)
+            "-gencode=arch=compute_86,code=sm_86",
+            "-gencode=arch=compute_89,code=sm_89",
+            "-gencode=arch=compute_90,code=sm_90",
+            # "-gencode=arch=compute_120,code=sm_120",  # CUDA 12.8 or newer
         ]
         sources += sources_cuda
     elif (torch.cuda.is_available() and torch.version.hip is not None) or os.getenv("FORCE_ROCM", "0") == "1":
@@ -61,8 +61,7 @@ if __name__ == "__main__":
             "License :: OSI Approved :: Apache Software License",
             "Operating System :: OS Independent",
             "Programming Language :: Python :: 3",
-            "Programming Language :: Python :: 3.8",
-            "Programming Language :: Python :: 3.9",
+            "Programming Language :: Python :: 3.11",
         ],
         license="Apache License 2.0",
         ext_modules=[
