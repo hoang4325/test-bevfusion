@@ -250,7 +250,7 @@ This file contains the original, fully-tested manual steps used to build the BEV
       "Pillow<10" \
       tqdm \
       git+https://github.com/rathaumons/torchpack.git \
-      mmdet==2.20.0 \
+      "mmdet<3" \
       nuscenes-devkit==1.1.11 \
       numba \
       yapf==0.40.1 \
