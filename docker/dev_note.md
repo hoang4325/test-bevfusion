@@ -1,4 +1,4 @@
-# DEV NOTE 20260303
+# DEV NOTE 20260303 (CUDA 12.1)
 
 This file contains the original, fully-tested manual steps used to build the BEVFusion training environment interactively inside a container.
 
@@ -328,6 +328,7 @@ This file contains the original, fully-tested manual steps used to build the BEV
   cd /workspace
   git clone https://github.com/rathaumons/bevfusionx.git
   cd bevfusion
+  git checkout cu121
   python setup.py develop
   pip list
   ```
