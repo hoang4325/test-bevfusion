@@ -100,14 +100,16 @@ For the original fully manual, step-by-step dev notes, see: [`dev_note.md`](dev_
   <details><summary>Show more details</summary>
 
   ```bash
-  cd /root/mmcv-1.4.0
+  cd /root/mmcv-1.7.3
 
   # Check if MMCV has CUDA support
   python -W ignore -c "import mmcv"
   python -W ignore .dev_scripts/check_installation.py
 
   # Rebuild if MMCV has no CUDA support
-  MAKEFLAGS="-j$(nproc)" MMCV_WITH_OPS=1 pip install -e . -v
+  pip install -U "setuptools<82"
+  MAKEFLAGS="-j$(nproc)" MMCV_WITH_OPS=1 FORCE_CUDA=1 pip install -e . --no-build-isolation -v
+  pip install setuptools==59.5.0
   ```
 
   </details>

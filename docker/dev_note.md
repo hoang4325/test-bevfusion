@@ -93,9 +93,9 @@ This file contains the original, fully-tested manual steps used to build the BEV
 
 ## Create a container for BEVFusion
 
-- Pull the [official NVIDIA CUDA 11.3.1](https://gitlab.com/nvidia/container-images/cuda/blob/master/doc/unsupported-tags.md#cuda-1131) on host:
+- Pull the [official NVIDIA CUDA 12.1.0](https://gitlab.com/nvidia/container-images/cuda/blob/master/doc/unsupported-tags.md#cuda-1210-1) on host:
   ```bash
-  docker pull nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04
+  docker pull nvidia/cuda:12.1.0-cudnn8-devel-ubuntu20.04
   ```
 
 - Create and run `bev-train` container with a mounted workspace `home/$USER/docker/bev_train:/workspace`:
@@ -141,7 +141,7 @@ This file contains the original, fully-tested manual steps used to build the BEV
   - Create a Python 3.9 environment call `bevfusion`:
     ```bash
     conda deactivate
-    conda create -n bevfusion python=3.9 -y
+    conda create -n bevfusion python=3.11 -y
     ```
 
   - Add to `.bashrc` using [VS Code](https://code.visualstudio.com/download) from host:
@@ -168,29 +168,29 @@ This file contains the original, fully-tested manual steps used to build the BEV
 
 - Install `opencv-python` and `numpy`:
   ```
-  pip install -U pip wheel setuptools==59.5.0 # MUST DO !!!
-  pip install numpy==1.23.5 "opencv-python<4.6"
+  pip install -U pip wheel "setuptools<82"
+  pip install numpy==1.26.4 "opencv-python<4.12"
   ```
 
-- Install [PyTorch](https://pytorch.org/) 1.10.2 + CUDA 11.3 (Max support: `compute_86`, `sm_86`):
+- Install [PyTorch](https://pytorch.org/) 2.2.2 + CUDA 12.1 (Max support: `compute_90`, `sm_90`):
   ```bash
-  pip install torch==1.10.2 torchvision==0.11.3 --index-url https://download.pytorch.org/whl/cu113
+  pip install torch==2.2.2 torchvision==0.17.2 --index-url https://download.pytorch.org/whl/cu121
   ```
 
-- Install [OpenMPI v4.0.4](https://www.open-mpi.org/software/ompi/v4.0/) with CUDA:
+- Install [OpenMPI v4.0.7](https://www.open-mpi.org/software/ompi/v4.0/) with CUDA:
 
   <details><summary>Show more details</summary>
 
   - Clone source:
     ```bash
     cd ~
-    wget https://download.open-mpi.org/release/open-mpi/v4.0/openmpi-4.0.4.tar.gz
-    tar -xvf openmpi-4.0.4.tar.gz
+    wget https://download.open-mpi.org/release/open-mpi/v4.0/openmpi-4.0.7.tar.gz
+    tar -xvf openmpi-4.0.7.tar.gz
     ```
 
   - Config cmake with CUDA:
     ```bash
-    cd openmpi-4.0.4
+    cd openmpi-4.0.7
     ./configure --prefix="$HOME/.openmpi" --with-cuda=/usr/local/cuda
     ```
 
@@ -218,21 +218,21 @@ This file contains the original, fully-tested manual steps used to build the BEV
 
   </details>
 
-- Install [MMCV v1.4.0](https://github.com/open-mmlab/mmcv/releases/tag/v1.4.0) with CUDA:
+- Install [MMCV v1.7.3](https://github.com/rathaROG/mmcv/releases/tag/v1.7.3) with CUDA:
 
   <details><summary>Show more details</summary>
 
   - Clone source:
     ```bash
     cd ~
-    wget -O mmcv-1.4.0.tar.gz https://github.com/open-mmlab/mmcv/archive/refs/tags/v1.4.0.tar.gz
-    tar -xvf mmcv-1.4.0.tar.gz
+    wget -O https://github.com/rathaROG/mmcv/archive/refs/tags/v1.7.3.tar.gz
+    tar -xvf mmcv-1.7.3.tar.gz
     ```
 
   - Config cmake, build, and install:
     ```bash
-    cd mmcv-1.4.0
-    MAKEFLAGS="-j$(nproc)" MMCV_WITH_OPS=1 pip install -e . -v
+    cd mmcv-1.7.3
+    MAKEFLAGS="-j$(nproc)" MMCV_WITH_OPS=1 pip install -e . --no-build-isolation -v
     ```
 
   - Quick test:
@@ -246,21 +246,27 @@ This file contains the original, fully-tested manual steps used to build the BEV
 - Install other required Python packages:
   ```bash
   pip install \
-      Pillow==8.4.0 \
+      psutil \
+      "Pillow<10" \
       tqdm \
       git+https://github.com/rathaumons/torchpack.git \
       mmdet==2.20.0 \
       nuscenes-devkit==1.1.11 \
       numba \
-      flash-attn==1.0.9 \
       yapf==0.40.1 \
-      mpi4py==3.0.3 \
+      mpi4py \
       future \
       tensorboard \
-      cumm-cu113 \
-      spconv-cu113 \
-      numpy==1.23.5 \
-      "opencv-python<4.6"
+      cumm-cu121 \
+      spconv-cu121 \
+      numpy==1.26.4 \
+      "opencv-python<4.12"
+  ```
+
+- Install `flash-attn==1.0.9` and `setuptools==59.5.0`:
+  ```bash
+  pip install --no-build-isolation flash-attn==1.0.9
+  pip install setuptools==59.5.0
   ```
 
 ## Export docker image
