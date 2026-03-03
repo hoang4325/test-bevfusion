@@ -1,4 +1,4 @@
-# Docker 🐳
+# Docker (CUDA 12.1) 🐳
 
 This guide describes how to build and run the BEVFusion training environment using:
 
@@ -30,7 +30,7 @@ For the original fully manual, step-by-step dev notes, see: [`dev_note.md`](dev_
 - From the [current directory](.) containing [`Dockerfile`](Dockerfile):
 
   ```bash
-  # export DOCKER_BUILDKIT=0 # Use legacy builder
+  # export DOCKER_BUILDKIT=0  # Use legacy builder
   docker build -t bev-train:latest .
   ```
 
@@ -120,6 +120,7 @@ For the original fully manual, step-by-step dev notes, see: [`dev_note.md`](dev_
   cd /workspace
   git clone https://github.com/rathaumons/bevfusionx.git
   cd bevfusionx
+  git checkout cuda121
   python setup.py develop
   ```
 
