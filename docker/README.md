@@ -1,4 +1,4 @@
-# Docker (CUDA 12.1) 🐳
+# Docker (CUDA 12.6) 🐳
 
 This guide describes how to build and run the BEVFusion training environment using:
 
@@ -120,7 +120,7 @@ For the original fully manual, step-by-step dev notes, see: [`dev_note.md`](dev_
   cd /workspace
   git clone https://github.com/rathaumons/bevfusionx.git
   cd bevfusionx
-  git checkout cuda121
+  git checkout cuda126
   python setup.py develop
   ```
 
