@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.1.0-cudnn8-devel-ubuntu20.04
+FROM nvidia/cuda:12.6.2-cudnn-devel-ubuntu20.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-lc"]
@@ -54,7 +54,7 @@ RUN source /root/miniconda3/bin/activate bevfusion && \
     pip install numpy==1.26.4 "opencv-python<4.12"
 
 RUN source /root/miniconda3/bin/activate bevfusion && \
-    pip install torch==2.2.2 torchvision==0.17.2 --index-url https://download.pytorch.org/whl/cu121
+    pip install torch==2.10.0 torchvision==0.25.0 --index-url https://download.pytorch.org/whl/cu126
 
 # ------------------------------------------------------------
 # Global ENV
@@ -120,8 +120,8 @@ RUN source /root/miniconda3/bin/activate bevfusion && \
         mpi4py \
         future \
         tensorboard \
-        cumm-cu121 \
-        spconv-cu121 \
+        cumm-cu126 \
+        spconv-cu126 \
         numpy==1.26.4 \
         "opencv-python<4.12"
 
