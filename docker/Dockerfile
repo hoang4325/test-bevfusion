@@ -85,7 +85,7 @@ RUN source /root/miniconda3/bin/activate bevfusion && \
     make install
 
 # ------------------------------------------------------------
-# MMCV 1.7.2 with CUDA
+# MMCV 1.7.3 with CUDA
 # ------------------------------------------------------------
 
 # Force CUDA
