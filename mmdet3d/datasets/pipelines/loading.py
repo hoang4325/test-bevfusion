@@ -607,6 +607,8 @@ class LoadRadarPointsMultiSweeps(object):
                  normalize=False, 
                  test_mode=False):
         self.load_dim = load_dim
+        if isinstance(use_dim, int):
+            use_dim = list(range(use_dim))
         self.use_dim = use_dim
         self.sweeps_num = sweeps_num
         self.file_client_args = file_client_args.copy()
@@ -679,36 +681,20 @@ class LoadRadarPointsMultiSweeps(object):
         return points.transpose().astype(np.float32)
         
 
-    def _pad_or_drop(self, points):
-        '''
-        points: [N, 18]
-        '''
+    def _cap_points(self, points):
+        """Apply max_num as an actual point-count guard without padding."""
+        if self.max_num is None or self.max_num <= 0:
+            return points
 
         num_points = points.shape[0]
+        if num_points <= self.max_num:
+            return points
 
-        if num_points == self.max_num:
-            masks = np.ones((num_points, 1), 
-                        dtype=points.dtype)
+        if self.test_mode:
+            return points[:self.max_num, :]
 
-            return points, masks
-        
-        if num_points > self.max_num:
-            points = np.random.permutation(points)[:self.max_num, :]
-            masks = np.ones((self.max_num, 1), 
-                        dtype=points.dtype)
-            
-            return points, masks
-
-        if num_points < self.max_num:
-            zeros = np.zeros((self.max_num - num_points, points.shape[1]), 
-                        dtype=points.dtype)
-            masks = np.ones((num_points, 1), 
-                        dtype=points.dtype)
-            
-            points = np.concatenate((points, zeros), axis=0)
-            masks = np.concatenate((masks, zeros.copy()[:, [0]]), axis=0)
-
-            return points, masks
+        indices = np.random.permutation(num_points)[:self.max_num]
+        return points[indices, :]
 
     def normalize_feats(self, points, normalize_dims):
         for dim, min, max in normalize_dims:
@@ -731,6 +717,8 @@ class LoadRadarPointsMultiSweeps(object):
 
         points_sweep_list = []
         for key, sweeps in radars_dict.items():
+            if sweeps is None or len(sweeps) == 0:
+                continue
             if len(sweeps) < self.sweeps_num:
                 idxes = list(range(len(sweeps)))
             else:
@@ -775,9 +763,18 @@ class LoadRadarPointsMultiSweeps(object):
 
                 # current format is x y z dyn_prop id rcs vx vy vx_comp vy_comp is_quality_valid ambig_state x_rms y_rms invalid_state pdh0 vx_rms vy_rms timestamp
                 points_sweep_list.append(points_sweep_)
-        
-        points = np.concatenate(points_sweep_list, axis=0)
+
+        if len(points_sweep_list) == 0:
+            points = np.zeros((0, self.load_dim + 1), dtype=np.float32)
+        else:
+            points = np.concatenate(points_sweep_list, axis=0)
+
+        points = self._cap_points(points)
         points = self.perform_encodings(points, self.encoding)
+        if len(self.use_dim) > 0 and max(self.use_dim) >= points.shape[1]:
+            raise ValueError(
+                f"use_dim={self.use_dim} exceeds encoded radar feature dim={points.shape[1]}"
+            )
         points = points[:, self.use_dim]
 
         if self.normalize:

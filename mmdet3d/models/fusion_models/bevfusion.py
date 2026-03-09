@@ -1,6 +1,6 @@
 # Modified by UMONS-Numediart, Ratha SIV in 2026.
 
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 
 import torch
 from mmcv.runner import auto_fp16, force_fp32
@@ -75,6 +75,7 @@ class BEVFusion(Base3DFusionModel):
             self.fuser = build_fuser(fuser)
         else:
             self.fuser = None
+        self.sensor_order = self._resolve_sensor_order(kwargs.pop("sensor_order", None))
 
         self.decoder = nn.ModuleDict(
             {
@@ -100,6 +101,58 @@ class BEVFusion(Base3DFusionModel):
 
 
         self.init_weights()
+
+    def _resolve_sensor_order(self, sensor_order: Optional[List[str]]) -> List[str]:
+        available_sensors = list(self.encoders.keys())
+        if sensor_order is None:
+            return available_sensors
+        if not isinstance(sensor_order, (list, tuple)):
+            raise TypeError(
+                f"sensor_order must be a list/tuple of sensor names, got {type(sensor_order)}"
+            )
+
+        sensor_order = list(sensor_order)
+        if len(sensor_order) != len(set(sensor_order)):
+            raise ValueError(f"sensor_order contains duplicates: {sensor_order}")
+
+        if set(sensor_order) != set(available_sensors):
+            raise ValueError(
+                "sensor_order must exactly match configured encoders. "
+                f"sensor_order={sensor_order}, encoders={available_sensors}"
+            )
+
+        return sensor_order
+
+    def _assert_fuser_compatibility(self, features: List[torch.Tensor]) -> None:
+        if self.fuser is None:
+            return
+
+        spatial_shapes = {(int(feat.shape[2]), int(feat.shape[3])) for feat in features}
+        if len(spatial_shapes) != 1:
+            raise ValueError(
+                "All encoder features must share the same spatial shape before fusion, "
+                f"but got {sorted(list(spatial_shapes))} in sensor order {self.sensor_order}."
+            )
+
+        expected_channels = getattr(self.fuser, "in_channels", None)
+        if expected_channels is None:
+            return
+        if isinstance(expected_channels, int):
+            expected_channels = [expected_channels]
+        expected_channels = [int(x) for x in expected_channels]
+        actual_channels = [int(feat.shape[1]) for feat in features]
+
+        if len(expected_channels) != len(actual_channels):
+            raise ValueError(
+                f"Fuser expects {len(expected_channels)} inputs ({expected_channels}), "
+                f"but got {len(actual_channels)} features ({actual_channels})."
+            )
+
+        if expected_channels != actual_channels:
+            raise ValueError(
+                f"Fuser in_channels mismatch. expected={expected_channels}, actual={actual_channels}, "
+                f"sensor_order={self.sensor_order}"
+            )
 
     def init_weights(self) -> None:
         if "camera" in self.encoders:
@@ -297,9 +350,8 @@ class BEVFusion(Base3DFusionModel):
     ):
         features = []
         auxiliary_losses = {}
-        for sensor in (
-            self.encoders if self.training else list(self.encoders.keys())[::-1]
-        ):
+        sensor_extract_order = self.sensor_order if self.training else list(reversed(self.sensor_order))
+        for sensor in sensor_extract_order:
             if sensor == "camera":
                 feature = self.extract_camera_features(
                     img,
@@ -319,8 +371,12 @@ class BEVFusion(Base3DFusionModel):
                 if self.use_depth_loss:
                     feature, auxiliary_losses['depth'] = feature[0], feature[-1]
             elif sensor == "lidar":
+                if points is None:
+                    raise ValueError("LiDAR encoder is enabled but 'points' input is None.")
                 feature = self.extract_features(points, sensor)
             elif sensor == "radar":
+                if radar is None:
+                    raise ValueError("Radar encoder is enabled but 'radar' input is None.")
                 feature = self.extract_features(radar, sensor)
             else:
                 raise ValueError(f"unsupported sensor: {sensor}")
@@ -332,6 +388,7 @@ class BEVFusion(Base3DFusionModel):
             features = features[::-1]
 
         if self.fuser is not None:
+            self._assert_fuser_compatibility(features)
             x = self.fuser(features)
         else:
             assert len(features) == 1, features

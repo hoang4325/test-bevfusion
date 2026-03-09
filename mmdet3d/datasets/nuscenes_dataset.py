@@ -1,6 +1,7 @@
 # Modified by UMONS-Numediart, Ratha SIV in 2026.
 
 import tempfile
+import warnings
 from os import path as osp
 from typing import Any, Dict
 
@@ -160,13 +161,44 @@ class NuScenesDataset(Custom3DDataset):
 
         self.eval_detection_configs = config_factory(self.eval_version)
         if self.modality is None:
-            self.modality = dict(
-                use_camera=False,
-                use_lidar=True,
-                use_radar=False,
-                use_map=False,
-                use_external=False,
+            self.modality = self._default_modality()
+
+        self.modality = self._sanitize_modality_meta(self.modality)
+
+    @staticmethod
+    def _default_modality() -> Dict[str, bool]:
+        return dict(
+            use_camera=False,
+            use_lidar=True,
+            use_radar=False,
+            use_map=False,
+            use_external=False,
+        )
+
+    def _pipeline_uses_radar_loader(self) -> bool:
+        if not hasattr(self, "pipeline") or not hasattr(self.pipeline, "transforms"):
+            return False
+
+        for transform in self.pipeline.transforms:
+            if transform.__class__.__name__ == "LoadRadarPointsMultiSweeps":
+                return True
+        return False
+
+    def _sanitize_modality_meta(self, modality: Dict[str, Any]) -> Dict[str, bool]:
+        normalized = self._default_modality()
+        for key in normalized:
+            if key in modality:
+                normalized[key] = bool(modality[key])
+
+        if self._pipeline_uses_radar_loader() and not normalized["use_radar"]:
+            warnings.warn(
+                "LoadRadarPointsMultiSweeps is enabled in the pipeline but "
+                "modality.use_radar=False. For consistent metadata, "
+                "use_radar is set to True automatically."
             )
+            normalized["use_radar"] = True
+
+        return normalized
 
     def get_cat_ids(self, idx):
         """Get category distribution of single scene.
@@ -225,6 +257,11 @@ class NuScenesDataset(Custom3DDataset):
             data.pop('location')
         if data['radar'] is None:
             data.pop('radar')
+
+        if self.modality.get("use_radar", False) and "radar" not in data:
+            raise ValueError(
+                f"modality.use_radar=True but sample {info['token']} has no radar sweeps in infos."
+            )
 
         # ego to global transform
         ego2global = np.eye(4).astype(np.float32)
@@ -399,7 +436,7 @@ class NuScenesDataset(Custom3DDataset):
                 annos.append(nusc_anno)
             nusc_annos[sample_token] = annos
         nusc_submissions = {
-            "meta": self.modality,
+            "meta": dict(self.modality),
             "results": nusc_annos,
         }
 
