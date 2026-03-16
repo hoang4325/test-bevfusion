@@ -1,4 +1,4 @@
-# BEVFusion · 𝕏
+# BEVFusion 
 
 ![demo](assets/demo.gif)
 
@@ -26,8 +26,3 @@ All sensor modalities (**Camera ✓ LiDAR ✓ RADAR ✓**) are supported and hav
 ### Visualization:
 
 - [VISUALIZATION.md](tools/VISUALIZATION.md)
-
-## 📝 License
-
-[![NOTICE](https://img.shields.io/badge/NOTICE-Present-blue)](NOTICE)
-[![LICENSE](https://img.shields.io/badge/LICENSE-Apache_2.0-blue)](LICENSE)
