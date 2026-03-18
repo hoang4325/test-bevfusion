@@ -295,14 +295,32 @@ class BaseDepthTransform(BaseTransform):
         camera2lidar_trans = camera2lidar[..., :3, 3]
 
         if self.use_points == 'radar':
-            points = radar
+            # Deep-copy the list of tensors so subsequent height_expand
+            # and coordinate projection never mutate the caller's data.
+            points = [t.clone() for t in radar]
 
         if self.height_expand:
-            heights = torch.arange(0.25, 2.25, 0.25, device=points[0].device)
+            # Read height limits from the configured zbound instead of
+            # hardcoding dataset-specific values (fixes Task 5).
+            # zbound format: [z_min, z_max, z_step]
+            z_min = float(self.zbound[0]) + float(self.zbound[2]) / 2.0
+            z_max = float(self.zbound[1])
+            z_step = float(self.zbound[2])
+            heights = torch.arange(
+                z_min, z_max, z_step, device=points[0].device
+            )
+            n_heights = heights.shape[0]
+            assert n_heights > 0, (
+                f"zbound {self.zbound} produces 0 heights — check configuration"
+            )
+            # Build expanded list without mutating the cloned tensors
+            expanded = []
             for b in range(len(points)):
-                points_repeated = points[b].repeat_interleave(8, dim=0)
-                points_repeated[:, 2] = heights.repeat(points[b].shape[0])
-                points[b] = points_repeated
+                pts_b = points[b]                                          # [N, C]
+                pts_rep = pts_b.repeat_interleave(n_heights, dim=0).clone()  # [N*H, C]
+                pts_rep[:, 2] = heights.repeat(pts_b.shape[0])
+                expanded.append(pts_rep)
+            points = expanded
 
         batch_size = len(points)
         depth_in_channels = 1 if self.depth_input=='scalar' else self.D
@@ -313,13 +331,16 @@ class BaseDepthTransform(BaseTransform):
 
 
         for b in range(batch_size):
-            cur_coords = points[b][:, :3]
+            # Clone the xyz slice so the -/matmul ops below do NOT mutate
+            # the original tensor in `points[b]`.  Without the clone, the
+            # next line's subtraction would silently corrupt the caller's data.
+            cur_coords = points[b][:, :3].clone()
             cur_img_aug_matrix = img_aug_matrix[b]
             cur_lidar_aug_matrix = lidar_aug_matrix[b]
             cur_lidar2image = lidar2image[b]
 
-            # inverse aug
-            cur_coords -= cur_lidar_aug_matrix[:3, 3]
+            # inverse aug (non-mutating: clone was taken above)
+            cur_coords = cur_coords - cur_lidar_aug_matrix[:3, 3]
             cur_coords = torch.linalg.inv(cur_lidar_aug_matrix[:3, :3]).matmul(
                 cur_coords.transpose(1, 0)
             )

@@ -780,13 +780,40 @@ class LoadRadarPointsMultiSweeps(object):
         if self.normalize:
             points = self.normalize_feats(points, self.normalize_dims)
         
+        #  Build attribute_dims: tells RadarPoints which post-selection
+        #  columns hold velocity so transforms can handle them correctly.
         points = RadarPoints(
-            points, points_dim=points.shape[-1], attribute_dims=None
+            points,
+            points_dim=points.shape[-1],
+            attribute_dims=self._build_attribute_dims(self.use_dim),
         )
         
         results['radar'] = points
         
         return results
+
+    @staticmethod
+    def _build_attribute_dims(use_dim):
+        """Map original radar column names to their post-selection indices.
+
+        The raw radar format (after sweep merging) has:
+          col 6  -> vx       (raw velocity x)
+          col 7  -> vy       (raw velocity y)
+          col 8  -> vx_comp  (ego-compensated velocity x)
+          col 9  -> vy_comp  (ego-compensated velocity y)
+
+        After ``points[:, use_dim]`` these shift to new indices.  We build a
+        dict ``{name: post_index}`` so that transforms can look up the right
+        columns without relying on fragile hardcoded integers.
+        """
+        name_to_orig = {'vx': 6, 'vy': 7, 'vx_comp': 8, 'vy_comp': 9}
+        attr_dims = {}
+        use_dim_list = list(use_dim)
+        for name, orig_col in name_to_orig.items():
+            if orig_col in use_dim_list:
+                attr_dims[name] = use_dim_list.index(orig_col)
+        return attr_dims if attr_dims else None
+
 
     def __repr__(self):
         """str: Return a string that describes the module."""

@@ -1,5 +1,6 @@
 # Modified by UMONS-Numediart, Ratha SIV in 2026.
 
+import time
 from typing import Any, Dict
 
 import mmcv
@@ -361,11 +362,31 @@ class ObjectPaste:
         sample_2d (bool): Whether to also paste 2D image patch to the images
             This should be true when applying multi-modality cut-and-paste.
             Defaults to False.
+        paste_radar (bool): Whether to also paste radar points.
+            Defaults to False. Pasting radar is physically invalid unless
+            compensated velocity is recomputed from source->target ego-motion.
+        max_retry_per_object (int): Max retries per candidate object before
+            giving up. Prevents infinite collision-check loops.
+        max_collision_checks (int): Total collision checks budget per sample.
+        max_paste_time_ms (float): Wall-clock time budget (ms) for paste loop.
     """
 
-    def __init__(self, db_sampler, sample_2d=False, stop_epoch=None):
+    def __init__(
+        self,
+        db_sampler,
+        sample_2d=False,
+        stop_epoch=None,
+        paste_radar=False,
+        max_retry_per_object=50,
+        max_collision_checks=500,
+        max_paste_time_ms=100.0,
+    ):
         self.sampler_cfg = db_sampler
         self.sample_2d = sample_2d
+        self.paste_radar = paste_radar
+        self.max_retry_per_object = max_retry_per_object
+        self.max_collision_checks = max_collision_checks
+        self.max_paste_time_ms = max_paste_time_ms
         if "type" not in db_sampler.keys():
             db_sampler["type"] = "DataBaseSampler"
         self.db_sampler = build_from_cfg(db_sampler, OBJECTSAMPLERS)
@@ -397,6 +418,17 @@ class ObjectPaste:
                 'points', 'gt_bboxes_3d', 'gt_labels_3d' keys are updated \
                 in the result dict.
         """
+        # --- Radar Velocity Paradox Guard (Invariant: Physical Consistency) ---
+        # Pasting radar from scene A into scene B is physically invalid because
+        # compensated velocity (vx_comp, vy_comp) depends on source ego-motion.
+        # Without full recomputation, pasted radar velocity is meaningless.
+        if self.paste_radar and "radar" in data:
+            raise NotImplementedError(
+                "Radar ObjectPaste requires compensated-velocity recomputation "
+                "from source to target ego-motion, which is not yet implemented. "
+                "Set paste_radar=False in your pipeline config."
+            )
+
         if self.stop_epoch is not None and self.epoch >= self.stop_epoch:
             return data
         gt_bboxes_3d = data["gt_bboxes_3d"]
@@ -487,9 +519,13 @@ class ObjectNoise:
         gt_bboxes_3d = data["gt_bboxes_3d"]
         points = data["points"]
 
-        # TODO: check this inplace function
-        numpy_box = gt_bboxes_3d.tensor.numpy()
-        numpy_points = points.tensor.numpy()
+        # --- Break memory alias (Invariant 3) ---
+        # .numpy() on a CPU tensor shares memory with the underlying storage.
+        # noise_per_object_v3_ mutates in-place (trailing underscore),
+        # so it would silently corrupt the original tensor.
+        # .copy() fully detaches the numpy array from the PyTorch tensor.
+        numpy_box = gt_bboxes_3d.tensor.detach().cpu().numpy().copy()
+        numpy_points = points.tensor.detach().cpu().numpy().copy()
 
         noise_per_object_v3_(
             numpy_box,
@@ -500,6 +536,7 @@ class ObjectNoise:
             num_try=self.num_try,
         )
 
+        # Reconstruct via class constructors to preserve invariants
         data["gt_bboxes_3d"] = gt_bboxes_3d.new_box(numpy_box)
         data["points"] = points.new_point(numpy_points)
         return data

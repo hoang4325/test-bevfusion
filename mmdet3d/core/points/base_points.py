@@ -163,12 +163,25 @@ class BasePoints:
                     [[rot_cos, -rot_sin, 0], [rot_sin, rot_cos, 0], [0, 0, 1]]
                 )
             elif axis == 0:
+                # Correct Euler Rx: rotates around X-axis
                 rot_mat_T = rotation.new_tensor(
-                    [[0, rot_cos, -rot_sin], [0, rot_sin, rot_cos], [1, 0, 0]]
+                    [[1, 0, 0], [0, rot_cos, -rot_sin], [0, rot_sin, rot_cos]]
                 )
             else:
                 raise ValueError("axis should in range")
             rot_mat_T = rot_mat_T.T
+            # --- Runtime validity guard (fail-fast) ---
+            _R = rot_mat_T.float()
+            _det = torch.det(_R).item()
+            assert abs(_det - 1.0) < 1e-4, (
+                f"Rotation matrix has det={_det:.6f} (expected 1.0). "
+                f"axis={axis}, angle={rotation.item():.4f}"
+            )
+            _eye_err = (_R @ _R.T - torch.eye(3, device=_R.device)).abs().max().item()
+            assert _eye_err < 1e-4, (
+                f"Rotation matrix not orthogonal: max_err={_eye_err:.6f}. "
+                f"axis={axis}, angle={rotation.item():.4f}"
+            )
         elif rotation.numel() == 9:
             rot_mat_T = rotation
         else:

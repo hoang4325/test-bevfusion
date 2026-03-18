@@ -233,9 +233,11 @@ class BEVFusion(Base3DFusionModel):
         if len(sizes) > 0:
             sizes = torch.cat(sizes, dim=0)
             if self.voxelize_reduce.get(sensor, True):
-                feats = feats.sum(dim=1, keepdim=False) / sizes.type_as(feats).view(
-                    -1, 1
-                )
+                # clamp(min=1) prevents division-by-zero when radar voxels
+                # are empty (all points filtered out).  Empty voxels produce
+                # a zero sum, so the result is 0.0 — semantically correct.
+                safe_sizes = sizes.clamp(min=1).type_as(feats).view(-1, 1)
+                feats = feats.sum(dim=1, keepdim=False) / safe_sizes
                 feats = feats.contiguous()
 
         return feats, coords, sizes

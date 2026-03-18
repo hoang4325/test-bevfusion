@@ -118,7 +118,7 @@ class LiDARInstance3DBoxes(BaseInstance3DBoxes):
         rotation matrix.
 
         Args:
-            angles (float | torch.Tensor | np.ndarray):
+            angle (float | torch.Tensor | np.ndarray):
                 Rotation angle or rotation matrix.
             points (torch.Tensor, numpy.ndarray, :obj:`BasePoints`, optional):
                 Points to rotate. Defaults to None.
@@ -149,8 +149,10 @@ class LiDARInstance3DBoxes(BaseInstance3DBoxes):
         self.tensor[:, :3] = self.tensor[:, :3] @ rot_mat_T
         self.tensor[:, 6] += angle
 
-        if self.tensor.shape[1] == 9:
-            # rotate velo vector
+        # Rotate velocity vector (vx=7, vy=8) if present.
+        # Uses >= 9 instead of == 9 so boxes with extra dims (e.g. tracking)
+        # still get their velocity rotated correctly.
+        if self.tensor.size(1) >= 9:
             self.tensor[:, 7:9] = self.tensor[:, 7:9] @ rot_mat_T[:2, :2]
 
         if points is not None:
@@ -168,10 +170,19 @@ class LiDARInstance3DBoxes(BaseInstance3DBoxes):
         else:
             return rot_mat_T
 
+    # --- Explicit field indices (Invariant 4) ---
+    _X_IDX = 0
+    _Y_IDX = 1
+    _YAW_IDX = 6
+    _VX_IDX = 7
+    _VY_IDX = 8
+
     def flip(self, bev_direction="horizontal", points=None):
         """Flip the boxes in BEV along given BEV direction.
 
         In LIDAR coordinates, it flips the y (horizontal) or x (vertical) axis.
+        Velocity (vx, vy) at indices 7, 8 is also flipped to maintain geometric
+        consistency with radar points (Invariant 2).
 
         Args:
             bev_direction (str): Flip direction (horizontal or vertical).
@@ -182,14 +193,29 @@ class LiDARInstance3DBoxes(BaseInstance3DBoxes):
             torch.Tensor, numpy.ndarray or None: Flipped points.
         """
         assert bev_direction in ("horizontal", "vertical")
+
+        has_velocity = self.tensor.size(1) >= 9
+
         if bev_direction == "horizontal":
-            self.tensor[:, 1::7] = -self.tensor[:, 1::7]
+            # Flip Y coordinate
+            self.tensor[:, self._Y_IDX] = -self.tensor[:, self._Y_IDX]
             if self.with_yaw:
-                self.tensor[:, 6] = -self.tensor[:, 6] + np.pi
+                self.tensor[:, self._YAW_IDX] = -self.tensor[:, self._YAW_IDX] + np.pi
+            # Flip vy to keep velocity geometrically consistent
+            if has_velocity:
+                self.tensor[:, self._VY_IDX] = -self.tensor[:, self._VY_IDX]
+
         elif bev_direction == "vertical":
-            self.tensor[:, 0::7] = -self.tensor[:, 0::7]
+            # Flip X coordinate
+            self.tensor[:, self._X_IDX] = -self.tensor[:, self._X_IDX]
             if self.with_yaw:
-                self.tensor[:, 6] = -self.tensor[:, 6]
+                self.tensor[:, self._YAW_IDX] = -self.tensor[:, self._YAW_IDX]
+            # Flip vx to keep velocity geometrically consistent
+            if has_velocity:
+                self.tensor[:, self._VX_IDX] = -self.tensor[:, self._VX_IDX]
+
+        # Normalize yaw to [-pi, pi) to prevent drift
+        self.limit_yaw(offset=0.5, period=2 * np.pi)
 
         if points is not None:
             assert isinstance(points, (torch.Tensor, np.ndarray, BasePoints))
@@ -243,6 +269,37 @@ class LiDARInstance3DBoxes(BaseInstance3DBoxes):
         from .box_3d_mode import Box3DMode
 
         return Box3DMode.convert(box=self, src=Box3DMode.LIDAR, dst=dst, rt_mat=rt_mat)
+
+    def scale(self, scale_factor, scale_velocity=False):
+        """Scale box spatial geometry, with opt-in velocity scaling.
+
+        Overrides BaseInstance3DBoxes.scale() to add explicit control over
+        whether velocity fields (vx=7, vy=8) are also scaled.
+
+        Default: scale_velocity=False — velocity is NOT scaled.
+        This is the safe default because:
+          - RadarPoints.scale() does NOT scale velocity
+          - Scaling velocity changes physical semantics (m/s)
+          - Must be enabled only when the FULL pipeline is audited
+
+        Extra fields at index 9+ (tracking ID, score, etc.) are NEVER scaled.
+
+        Args:
+            scale_factor (float): Scale factor for spatial dimensions.
+            scale_velocity (bool): If True, also scale velocity at [7:9].
+                Defaults to False.
+        """
+        tensor = self.tensor.clone()
+        tensor[:, :6] = tensor[:, :6] * scale_factor
+
+        if scale_velocity:
+            assert tensor.size(1) >= 9, (
+                f"scale_velocity=True but tensor only has {tensor.size(1)} columns. "
+                f"Expected velocity at indices [7:9]."
+            )
+            tensor[:, 7:9] = tensor[:, 7:9] * scale_factor
+
+        self.tensor = tensor
 
     def enlarged_box(self, extra_width):
         """Enlarge the length, width and height boxes.

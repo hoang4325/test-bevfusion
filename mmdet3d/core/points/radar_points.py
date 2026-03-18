@@ -3,6 +3,48 @@
 from .base_points import BasePoints
 import torch
 
+def transform_radar_points(
+    points: torch.Tensor,
+    attribute_dims: dict,
+    rot_mat_T: torch.Tensor,
+    translation: torch.Tensor = None,
+) -> torch.Tensor:
+    """Pure central helper to transform radar points (Task 1).
+
+    Ensures mathematical consistency for rotation and flip operations by
+    treating them both as linear transformations applied via the same
+    2x2 sub-matrix.
+
+    - Applies translation ONLY to coordinates (x, y, z).
+    - Applies 2x2 linear matrix ONLY to horizontal coordinates, and
+      horizontal velocity vectors (vx, vy, vx_comp, vy_comp). 
+
+    Returns a cloned tensor; prevents in-place mutation of caller tensors.
+    """
+    pts = points.clone()
+
+    # 1. Apply affine transformation to coordinates
+    pts[:, :3] = pts[:, :3] @ rot_mat_T
+    if translation is not None:
+        pts[:, :3] += translation
+
+    # 2. Apply purely linear 2x2 transformation to velocity (NO translation)
+    # This magically handles both rotations (cos, sin) and flips (-1, 1).
+    rot2d_T = rot_mat_T[:2, :2]
+    ad = attribute_dims or {}
+
+    def _transform_vel(c_x, c_y):
+        n = pts.shape[1]
+        if c_x is not None and c_y is not None and c_x < n and c_y < n:
+            vel = pts[:, [c_x, c_y]]
+            pts[:, [c_x, c_y]] = vel @ rot2d_T
+
+    _transform_vel(ad.get("vx"), ad.get("vy"))
+    _transform_vel(ad.get("vx_comp"), ad.get("vy_comp"))
+
+    return pts
+
+
 class RadarPoints(BasePoints):
     """Points of instances in radar coordinates.
     Args:
@@ -27,39 +69,45 @@ class RadarPoints(BasePoints):
         self.rotation_axis = 2
 
     def flip(self, bev_direction="horizontal"):
-        """Flip the boxes in BEV along given BEV direction."""
+        """Flip points in BEV along given direction via affine matrix."""
+        # Unify flip into a linear matrix multiplication to guarantee exactly
+        # identical behavior for coordinates and velocity.
         if bev_direction == "horizontal":
-            self.tensor[:, 1] = -self.tensor[:, 1]
-            self.tensor[:, 4] = -self.tensor[:, 4]
+            rot_mat_T = self.tensor.new_tensor([[1, 0, 0], [0, -1, 0], [0, 0, 1]])
         elif bev_direction == "vertical":
-            self.tensor[:, 0] = -self.tensor[:, 0]
-            self.tensor[:, 3] = -self.tensor[:, 3]
+            rot_mat_T = self.tensor.new_tensor([[-1, 0, 0], [0, 1, 0], [0, 0, 1]])
+        else:
+            rot_mat_T = torch.eye(3, device=self.tensor.device)
+        
+        self.tensor = transform_radar_points(self.tensor, self.attribute_dims, rot_mat_T)
 
     def jitter(self, amount):
-        jitter_noise = torch.randn(self.tensor.shape[0], 3)
-        jitter_noise *= amount 
-        self.tensor[:, :3] += jitter_noise 
+        """Add random positional jitter to xyz coordinates only."""
+        self.tensor = self.tensor.clone()  # Clone input to avoid alias mutation
+        noise = torch.randn_like(self.tensor[:, :3]) * amount
+        self.tensor[:, :3] += noise
 
     def scale(self, scale_factor):
-        """Scale the points with horizontal and vertical scaling factors.
-        Args:
-            scale_factors (float): Scale factors to scale the points.
-        """
+        """Scale point spatial coordinates by ``scale_factor`` (but NOT velocity)."""
+        self.tensor = self.tensor.clone()
         self.tensor[:, :3] *= scale_factor
-        self.tensor[:, 3:5] *= scale_factor
+
+    def translate(self, trans_vector):
+        """Translate strictly coordinates, via the pure central helper."""
+        if not isinstance(trans_vector, torch.Tensor):
+            trans_vector = self.tensor.new_tensor(trans_vector)
+        # Using the helper enforces that velocity NEVER receives translation
+        rot_mat_T = torch.eye(3, device=self.tensor.device)
+        self.tensor = transform_radar_points(
+            self.tensor, self.attribute_dims, rot_mat_T, translation=trans_vector
+        )
 
     def rotate(self, rotation, axis=None):
-        """Rotate points with the given rotation matrix or angle.
-        Args:
-            rotation (float, np.ndarray, torch.Tensor): Rotation matrix
-                or angle.
-            axis (int): Axis to rotate at. Defaults to None.
-        """
+        """Rotate points and velocity vectors via the pure central helper."""
         if not isinstance(rotation, torch.Tensor):
             rotation = self.tensor.new_tensor(rotation)
-        assert (
-            rotation.shape == torch.Size([3, 3]) or rotation.numel() == 1
-        ), f"invalid rotation shape {rotation.shape}"
+        assert rotation.shape == torch.Size([3, 3]) or rotation.numel() == 1, \
+            f"invalid rotation shape {rotation.shape}"
 
         if axis is None:
             axis = self.rotation_axis
@@ -76,8 +124,9 @@ class RadarPoints(BasePoints):
                     [[rot_cos, -rot_sin, 0], [rot_sin, rot_cos, 0], [0, 0, 1]]
                 )
             elif axis == 0:
+                # Correct Euler Rx matrix (fixes previous det=0 bug)
                 rot_mat_T = rotation.new_tensor(
-                    [[0, rot_cos, -rot_sin], [0, rot_sin, rot_cos], [1, 0, 0]]
+                    [[1, 0, 0], [0, rot_cos, -rot_sin], [0, rot_sin, rot_cos]]
                 )
             else:
                 raise ValueError("axis should in range")
@@ -86,8 +135,9 @@ class RadarPoints(BasePoints):
             rot_mat_T = rotation
         else:
             raise NotImplementedError
-        self.tensor[:, :3] = self.tensor[:, :3] @ rot_mat_T
-        self.tensor[:, 3:5] = self.tensor[:, 3:5] @ rot_mat_T[:2, :2]
+
+        # Delegate purely to the helper to prevent in-place mutation
+        self.tensor = transform_radar_points(self.tensor, self.attribute_dims, rot_mat_T)
 
         return rot_mat_T
 

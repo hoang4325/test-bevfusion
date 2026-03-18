@@ -214,13 +214,18 @@ class BaseInstance3DBoxes:
         pass
 
     def scale(self, scale_factor):
-        """Scale the box with horizontal and vertical scaling factors.
+        """Scale the box spatial geometry (x, y, z, l, w, h).
+
+        Only scales the 6 spatial dimensions [:, :6]. Extra fields (velocity,
+        tracking ID, score, etc.) at [:, 7:] are NOT touched by the base class.
+        Subclasses may override this to scale specific extra fields.
 
         Args:
-            scale_factors (float): Scale factors to scale the boxes.
+            scale_factor (float): Scale factor to apply to spatial dimensions.
         """
-        self.tensor[:, :6] *= scale_factor
-        self.tensor[:, 7:] *= scale_factor
+        tensor = self.tensor.clone()
+        tensor[:, :6] = tensor[:, :6] * scale_factor
+        self.tensor = tensor
 
     def limit_yaw(self, offset=0.5, period=np.pi):
         """Limit the yaw to a given period and offset.

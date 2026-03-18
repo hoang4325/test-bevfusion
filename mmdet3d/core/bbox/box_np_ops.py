@@ -201,7 +201,7 @@ def rotation_3d_in_axis(points, angles, axis=0):
         )
     elif axis == 0:
         rot_mat_T = np.stack(
-            [[zeros, rot_cos, -rot_sin], [zeros, rot_sin, rot_cos], [ones, zeros, zeros]]
+            [[ones, zeros, zeros], [zeros, rot_cos, -rot_sin], [zeros, rot_sin, rot_cos]]
         )
     else:
         raise ValueError("axis should in range")

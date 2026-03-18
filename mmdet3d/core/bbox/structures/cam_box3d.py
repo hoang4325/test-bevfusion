@@ -212,10 +212,18 @@ class CameraInstance3DBoxes(BaseInstance3DBoxes):
                 raise ValueError
             return points, rot_mat_T
 
+    # --- Explicit field indices (Invariant 4) ---
+    # Camera convention: x=0 (horizontal BEV axis), z=2 (vertical BEV axis)
+    _CAM_X_IDX = 0
+    _CAM_Z_IDX = 2
+    _CAM_YAW_IDX = 6
+
     def flip(self, bev_direction="horizontal", points=None):
         """Flip the boxes in BEV along given BEV direction.
 
         In CAM coordinates, it flips the x (horizontal) or z (vertical) axis.
+        Uses explicit field indices instead of stride-based slicers to prevent
+        accidental corruption of unrelated fields (Invariant 4).
 
         Args:
             bev_direction (str): Flip direction (horizontal or vertical).
@@ -227,13 +235,20 @@ class CameraInstance3DBoxes(BaseInstance3DBoxes):
         """
         assert bev_direction in ("horizontal", "vertical")
         if bev_direction == "horizontal":
-            self.tensor[:, 0::7] = -self.tensor[:, 0::7]
+            # Flip x coordinate only (was 0::7 which also hit col 7)
+            self.tensor[:, self._CAM_X_IDX] = -self.tensor[:, self._CAM_X_IDX]
             if self.with_yaw:
-                self.tensor[:, 6] = -self.tensor[:, 6] + np.pi
+                self.tensor[:, self._CAM_YAW_IDX] = (
+                    -self.tensor[:, self._CAM_YAW_IDX] + np.pi
+                )
         elif bev_direction == "vertical":
-            self.tensor[:, 2::7] = -self.tensor[:, 2::7]
+            # Flip z coordinate only (was 2::7 which also hit col 9)
+            self.tensor[:, self._CAM_Z_IDX] = -self.tensor[:, self._CAM_Z_IDX]
             if self.with_yaw:
-                self.tensor[:, 6] = -self.tensor[:, 6]
+                self.tensor[:, self._CAM_YAW_IDX] = -self.tensor[:, self._CAM_YAW_IDX]
+
+        # Normalize yaw to [-pi, pi) to prevent drift
+        self.limit_yaw(offset=0.5, period=2 * np.pi)
 
         if points is not None:
             assert isinstance(points, (torch.Tensor, np.ndarray, BasePoints))

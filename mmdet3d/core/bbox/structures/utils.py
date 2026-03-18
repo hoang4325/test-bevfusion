@@ -57,9 +57,9 @@ def rotation_3d_in_axis(points, angles, axis=0):
     elif axis == 0:
         rot_mat_T = torch.stack(
             [
+                torch.stack([ones, zeros, zeros]),
                 torch.stack([zeros, rot_cos, -rot_sin]),
                 torch.stack([zeros, rot_sin, rot_cos]),
-                torch.stack([ones, zeros, zeros]),
             ]
         )
     else:

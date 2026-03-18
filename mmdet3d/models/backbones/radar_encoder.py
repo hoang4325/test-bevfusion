@@ -144,8 +144,12 @@ class RadarFeatureNet(nn.Module):
                 coors[:, 2].to(dtype).unsqueeze(1) * self.vy + self.y_offset
             )
 
-            # print(self.pc_range) [-51.2, -51.2, -5.0, 51.2, 51.2, 3.0] 
-            # normalize x,y,z to [0, 1]
+            # --- Clone to prevent in-place mutation of the input tensor ---
+            # The voxelizer may share this buffer; modifying it in-place would
+            # silently corrupt any code that still holds a reference to it.
+            features = features.clone()
+
+            # normalize x, y, z to [0, 1]
             features[:, :, 0:1] = (features[:, :, 0:1] - self.pc_range[0]) / (self.pc_range[3] - self.pc_range[0])
             features[:, :, 1:2] = (features[:, :, 1:2] - self.pc_range[1]) / (self.pc_range[4] - self.pc_range[1])
             features[:, :, 2:3] = (features[:, :, 2:3] - self.pc_range[2]) / (self.pc_range[5] - self.pc_range[2])
@@ -167,6 +171,16 @@ class RadarFeatureNet(nn.Module):
         # Forward pass through PFNLayers
         for rfn in self.rfn_layers:
             features = rfn(features)
+
+        # --- Guard against non-finite values from sparse radar voxels ---
+        # Empty/padded voxels can produce NaN or Inf through normalization;
+        # nan_to_num converts them to 0 and the assert fails loudly if any
+        # slip through so we catch regressions at training time.
+        features = torch.nan_to_num(features, nan=0.0, posinf=0.0, neginf=0.0)
+        assert torch.isfinite(features).all(), (
+            "RadarFeatureNet produced non-finite values after PFN layers. "
+            "Check for empty-voxel edge cases or normalization range errors."
+        )
 
         return features.squeeze()
 
