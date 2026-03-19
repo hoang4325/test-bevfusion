@@ -133,7 +133,7 @@ RUN source /root/miniconda3/bin/activate bevfusion && \
     pip install git+https://github.com/rathaROG/cumm-gpu.git
 
 RUN source /root/miniconda3/bin/activate bevfusion && \
-    pip install git+https://github.com/rathaROG/spconv-gpu.git
+    pip install --no-build-isolation git+https://github.com/rathaROG/spconv-gpu.git
 
 RUN source /root/miniconda3/bin/activate bevfusion && \
     pip install --no-build-isolation flash-attn==1.0.9
