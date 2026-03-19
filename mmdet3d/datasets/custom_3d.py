@@ -67,12 +67,29 @@ class Custom3DDataset(Dataset):
 
         if pipeline is not None:
             self.pipeline = Compose(pipeline)
+            if self.test_mode:
+                self._propagate_test_mode(self.pipeline.transforms)
 
         # set group flag for the sampler
         if not self.test_mode:
             self._set_group_flag()
 
         self.epoch = -1
+
+    def _propagate_test_mode(self, transforms):
+        """Propagate dataset test_mode into pipeline transforms that honor it."""
+        for transform in transforms:
+            if hasattr(transform, "test_mode"):
+                transform.test_mode = True
+
+            nested_transforms = getattr(transform, "transforms", None)
+            if nested_transforms is None:
+                continue
+
+            if hasattr(nested_transforms, "transforms"):
+                nested_transforms = nested_transforms.transforms
+
+            self._propagate_test_mode(nested_transforms)
     
     def set_epoch(self, epoch):
         self.epoch = epoch

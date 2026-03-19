@@ -646,8 +646,8 @@ class PointsRangeFilter:
             radar_mask = None
         else:
             radar = data["radar"]
-            # radar_mask = radar.in_range_3d(self.pcd_range)
-            radar_mask = radar.in_range_bev([-55.0, -55.0, 55.0, 55.0])
+            bev_range = self.pcd_range[[0, 1, 3, 4]]
+            radar_mask = radar.in_range_bev(bev_range)
             clean_radar = radar[radar_mask]
             data["radar"] = clean_radar
 

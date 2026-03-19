@@ -724,7 +724,7 @@ class LoadRadarPointsMultiSweeps(object):
             else:
                 idxes = list(range(self.sweeps_num))
 
-            ts = sweeps[0]['timestamp'] * 1e-6
+            ts = results["timestamp"] / 1e6
             for idx in idxes:
                 sweep = sweeps[idx]
 
