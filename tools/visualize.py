@@ -8,7 +8,7 @@ import mmcv
 import numpy as np
 import torch
 from mmcv import Config
-from mmcv.parallel import MMDistributedDataParallel
+from mmcv.parallel import DataContainer, MMDistributedDataParallel
 from mmcv.runner import load_checkpoint, wrap_fp16_model
 from torchpack import distributed as dist
 from torchpack.utils.config import configs
@@ -35,6 +35,38 @@ def recursive_eval(obj, globals=None):
         obj = recursive_eval(obj, globals)
 
     return obj
+
+
+def extract_points_array(data, key):
+    if key not in data:
+        return None
+
+    value = data[key]
+    if isinstance(value, DataContainer):
+        value = value.data[0]
+        if isinstance(value, list):
+            value = value[0]
+
+    if hasattr(value, "tensor"):
+        value = value.tensor
+
+    if torch.is_tensor(value):
+        value = value.detach().cpu().numpy()
+    elif value is not None:
+        value = np.asarray(value)
+
+    if value is None:
+        return None
+
+    if value.ndim == 1:
+        value = value.reshape(1, -1)
+    elif value.ndim == 2 and value.shape[1] < 2 and value.shape[0] >= 2:
+        value = value.T
+
+    if value.ndim != 2 or value.shape[1] < 2:
+        return None
+
+    return value
 
 
 def main() -> None:
@@ -151,6 +183,18 @@ def main() -> None:
             visualize_lidar(
                 os.path.join(args.out_dir, "lidar", f"{name}.png"),
                 lidar,
+                bboxes=bboxes,
+                labels=labels,
+                xlim=[cfg.point_cloud_range[d] for d in [0, 3]],
+                ylim=[cfg.point_cloud_range[d] for d in [1, 4]],
+                classes=cfg.object_classes,
+            )
+
+        radar = extract_points_array(data, "radar")
+        if radar is not None:
+            visualize_lidar(
+                os.path.join(args.out_dir, "radar", f"{name}.png"),
+                radar,
                 bboxes=bboxes,
                 labels=labels,
                 xlim=[cfg.point_cloud_range[d] for d in [0, 3]],
